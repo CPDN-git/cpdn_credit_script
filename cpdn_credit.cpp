@@ -136,7 +136,8 @@ int handle_trickle(MSG_FROM_HOST& msg) {
         "Message %ld: timesteps<0 %d\n", msg.id, nsteps
       );
     } else {
-      credit = trickle_msg.nsteps * model.credit_per_timestep;
+      // Include additional factor of 7% to match old credit scheme
+      credit = trickle_msg.nsteps * model.credit_per_timestep * 1.07;
 
       log_messages.printf(MSG_NORMAL,
         "result_id=%d, credit=%1.6f, trickle_step_number=%ld, credit_per_timestep=%1.6f\n", result.id, credit, trickle_msg.nsteps, model.credit_per_timestep
