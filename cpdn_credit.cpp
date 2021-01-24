@@ -284,11 +284,12 @@ bool calc_wah2_darwin_credit(DB_RESULT& result) {
         "Result ID %ld: result lookup failed, error code: %s\n", result.id, boincerror(retval)
       );
     }
+    
+    // Apply correction factor of 7%
+    credit = total_credit * 1.07;
 
     log_messages.printf(MSG_NORMAL,
-      "Awarding %f: to host ID %ld\n", total_credit, result.hostid);
-
-    credit = total_credit;
+      "Awarding %f: to host ID %ld\n", credit, result.hostid);
 
     // update the result granted_credit and claimed_credit values
     sprintf(
