@@ -126,18 +126,16 @@ int handle_trickle(MSG_FROM_HOST& msg) {
       "appid: %ld, Credit per timestep: %1.6f\n", result.appid, model.credit_per_timestep
     );
 
-    int nsteps = trickle_msg.nsteps - result.app_version_num;
-    if (nsteps > MAX_STEPS_PER_TRICKLE) {
+    if (trickle_msg.nsteps > MAX_STEPS_PER_TRICKLE) {
       log_messages.printf(MSG_NORMAL,
-        "Message %ld: too many timesteps %d\n", msg.id, nsteps
+        "Message %ld: too many timesteps %d\n", msg.id, trickle_msg.nsteps
       );
-    } else if (nsteps < 0) {
+    } else if (trickle_msg.nsteps < 0) {
       log_messages.printf(MSG_NORMAL,
-        "Message %ld: timesteps<0 %d\n", msg.id, nsteps
+        "Message %ld: timesteps<0 %d\n", msg.id, trickle_msg.nsteps
       );
     } else {
-      // Include additional factor of 7% to match old credit scheme
-      credit = trickle_msg.nsteps * model.credit_per_timestep * 1.07;
+      credit = trickle_msg.nsteps * model.credit_per_timestep;
 
       log_messages.printf(MSG_NORMAL,
         "result_id=%d, credit=%1.6f, trickle_step_number=%ld, credit_per_timestep=%1.6f\n", result.id, credit, trickle_msg.nsteps, model.credit_per_timestep
@@ -157,7 +155,8 @@ int handle_trickle(MSG_FROM_HOST& msg) {
       );
 
       // Calculate the incremental credit to add to the host, user and team credits
-      incremental_credit = credit - result.granted_credit;
+      // Include additional factor of 7% to match old credit scheme
+      incremental_credit = (abs(credit - result.granted_credit)) * 1.07;;
 
       log_messages.printf(MSG_NORMAL,
         "result_id=%ld, host_id=%ld, incremental_credit=%1.6f\n", result.id, host.id, incremental_credit
