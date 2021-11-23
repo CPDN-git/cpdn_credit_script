@@ -155,7 +155,7 @@ int handle_trickle(MSG_FROM_HOST& msg) {
       );
 
       // Calculate the incremental credit to add to the host, user and team credits
-      // Include additional factor of 7% to match old credit scheme
+      // Include additional factor of 9% to match old credit scheme
       incremental_credit = (labs(credit - result.granted_credit)) * 1.09;
 
       log_messages.printf(MSG_NORMAL,
@@ -284,8 +284,8 @@ bool calc_wah2_darwin_credit(DB_RESULT& result) {
       );
     }
     
-    // Apply correction factor of 7%
-    credit = total_credit * 1.07;
+    // Apply correction factor of 9%
+    credit = total_credit * 1.09;
 
     log_messages.printf(MSG_NORMAL,
       "Awarding %f: to host ID %ld\n", credit, result.hostid);
