@@ -96,9 +96,6 @@ int main_loop(bool one_pass) {
         // award credit for completed WAH2 Darwin workunits
         handle_wah2_darwin_workunits();
 
-        // award credit for completed OpenIFS workunits
-        handle_openifs_workunits();
-
         // process trickles
         do_trickle_scan();
 
