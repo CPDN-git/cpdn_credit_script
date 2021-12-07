@@ -29,4 +29,3 @@ extern int handle_trickle(MSG_FROM_HOST&);
 extern int handle_trickle_init(int argc, char** argv);
 
 extern bool handle_wah2_darwin_workunits();
-extern bool handle_openifs_workunits();
