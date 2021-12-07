@@ -32,7 +32,6 @@ using namespace std;
 #define MAX_STEPS_PER_TRICKLE 6000000
 
 bool calc_wah2_darwin_credit(DB_RESULT& result);
-bool calc_openifs_credit(DB_RESULT& result);
 
 struct TRICKLE_MSG {
     int nsteps;
