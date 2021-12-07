@@ -226,35 +226,6 @@ bool handle_wah2_darwin_workunits() {
     return 0;
 }
 
-bool handle_openifs_workunits() {
-    DB_RESULT result;
-    char buf[256];
-    int retval;
-    log_messages.printf(MSG_NORMAL, "Now in handle_openifs_workunits\n");
-
-    // find completed OpenIFS workunits that do not have credit awarded
-    sprintf(buf, "where outcome = 1 and granted_credit = 0 and appid = 32");
-    while (1) {
-        //log_messages.printf(MSG_NORMAL, "Now in handle_openifs_workunits loop\n");
-        retval = result.enumerate(buf);
-        if (retval) {
-           if (retval != ERR_DB_NOT_FOUND) {
-                fprintf(stderr, "lost DB conn\n");
-                return -1;
-                exit(1);
-            }
-            break;
-        }
-        retval = calc_openifs_credit(result);
-        if (retval) {
-            log_messages.printf(MSG_CRITICAL,
-                "calc_openifs_credit(): %s\n", boincerror(retval)
-            );
-        }
-    }
-    return 0;
-}
-
 bool calc_wah2_darwin_credit(DB_RESULT& result) {
     DB_HOST host;
     char buf[256];
@@ -307,56 +278,6 @@ bool calc_wah2_darwin_credit(DB_RESULT& result) {
     // update the host, user and team total_credit values   
     retval = credit_grant(host, result.sent_time, credit);
     
-    if (retval) {
-      log_messages.printf(MSG_CRITICAL,
-        "Update of host and user for result ID: %ld failed, error code: %s\n", result.id, boincerror(retval)
-      );
-    }
-    return 0;
-}
-
-bool calc_openifs_credit(DB_RESULT& result) {
-    DB_HOST host;
-    char buf[256];
-
-    log_messages.printf(MSG_NORMAL,
-      "Looking up host ID %ld\n", result.hostid);
-
-    // Lookup host
-    host.clear();
-    int retval = host.lookup_id(result.hostid);
-    if (retval) {
-      log_messages.printf(MSG_NORMAL,
-        "Result ID %ld: can't find host ID %ld\n", result.id, result.hostid
-      );
-      return retval;
-    }
-
-    // For the moment we are setting a fixed amount of credit to be 
-    // awarded for each successful OpenIFS workunit, this will be 
-    // revisited when we start running longer OpenIFS workunits
-    credit = 110;
-
-    log_messages.printf(MSG_NORMAL,
-      "Awarding %f: to host ID %ld\n", credit, result.hostid);
-
-    // update the result granted_credit and claimed_credit values
-    sprintf(
-      buf, "granted_credit=%f,claimed_credit=%f",
-      credit,credit
-    );
-
-    retval = result.update_field(buf);
-    if (retval) {
-      log_messages.printf(MSG_CRITICAL,
-        "Update of result %lu failed: %s\n",
-        result.id, boincerror(retval)
-      );
-    }
-
-    // update the host, user and team total_credit values   
-    retval = credit_grant(host, result.sent_time, credit);
-
     if (retval) {
       log_messages.printf(MSG_CRITICAL,
         "Update of host and user for result ID: %ld failed, error code: %s\n", result.id, boincerror(retval)
