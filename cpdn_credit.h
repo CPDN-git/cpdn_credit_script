@@ -34,8 +34,9 @@ using namespace std;
 bool calc_wah2_darwin_credit(DB_RESULT& result);
 
 struct TRICKLE_MSG {
-    int nsteps;
     char result_name[256];
+    int phase,nsteps,cputime;
+    double version;
     int parse(XML_PARSER& xp) {
       nsteps = -1;
       strcpy(result_name, "");
@@ -43,10 +44,13 @@ struct TRICKLE_MSG {
         if (nsteps>=0 && strlen(result_name)) {
           return 0;
         }
-        if (xp.parse_int("ts", nsteps)) continue;
         if (xp.parse_str("result_name", result_name, sizeof(result_name))) {
           continue;
-        }
+        } 
+        if (xp.parse_int("ph", phase)) continue;
+        if (xp.parse_int("ts", nsteps)) continue;
+        if (xp.parse_int("cp", cputime)) continue;
+        if (xp.parse_double("vr", version)) continue;
       }
       return -1;
     }
