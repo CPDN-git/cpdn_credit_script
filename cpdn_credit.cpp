@@ -21,6 +21,7 @@ double credit = 0;
 int lookup(const int resultid);
 void db_parse(MYSQL_ROW &r);
 int credit_grant(DB_HOST &host, double start_time, double credit);
+int insert_trickle(MSG_FROM_HOST &msg,TRICKLE_MSG &trickle_msg,DB_RESULT &result);
 
 // Do CPDN-specific initialization.
 // Namely, open the experiment DB and read the models.
@@ -184,6 +185,14 @@ int handle_trickle(MSG_FROM_HOST& msg) {
         );
       }
 
+      // Insert details of the trickle into the trickle table
+      retval = insert_trickle(msg,trickle_msg,result);
+      if (retval) {
+        log_messages.printf(MSG_CRITICAL,
+          "Insertion of trickle %ld into trickle table failed: %s\n",
+          msg.id, boincerror(retval)
+        );
+      }        
     }
 
     // update opaque and app_version_num fields in result
@@ -413,4 +422,23 @@ int lookup(const int resultid) {
 void db_parse(MYSQL_ROW &r) {
     int i=0;
     total_credit = atof(r[i++]);
+}
+
+int insert_trickle(MSG_FROM_HOST &msg,TRICKLE_MSG &trickle_msg,DB_RESULT &result) {
+  char query[512];
+  int retval;
+
+  // Insert new details of trickle into trickle table
+  sprintf(query,
+   "insert into %s.trickle values("
+   "%s,%s,%s,%s,%s,%s,%s,%s,%s,unix_timestamp(),'')",
+   strExpt,msg.id,result.userid,msg.hostid,result.id,
+   result.workunitid,trickle_msg.phase,trickle_msg.nsteps,
+   trickle_msg.cputime,msg.create_time
+  );
+
+  log_messages.printf(MSG_NORMAL,"Inserting into trickle table: %s\n",query);
+  retval = cpdn_db.do_query(query);
+  if (retval) return retval;
+  return 0;
 }
