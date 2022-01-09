@@ -428,14 +428,27 @@ int insert_trickle(MSG_FROM_HOST &msg,TRICKLE_MSG &trickle_msg,DB_RESULT &result
   char query[512];
   int retval;
 
+  //log_messages.printf(MSG_NORMAL,"Database: %s\n",strExpt);
+  //log_messages.printf(MSG_NORMAL,"Trickle id: %d\n",msg.id);
+  //log_messages.printf(MSG_NORMAL,"User id: %d\n",result.userid);
+  //log_messages.printf(MSG_NORMAL,"Host id: %d\n",msg.hostid);
+  //log_messages.printf(MSG_NORMAL,"result.id: %d\n",result.id);
+  //log_messages.printf(MSG_NORMAL,"workunit id: %d\n",result.workunitid);
+  //log_messages.printf(MSG_NORMAL,"Phase: %d\n",trickle_msg.phase);
+  //log_messages.printf(MSG_NORMAL,"Number of trickle steps: %d\n",trickle_msg.nsteps);
+  //log_messages.printf(MSG_NORMAL,"cputime: %d\n",trickle_msg.cputime);
+  //log_messages.printf(MSG_NORMAL,"Create time: %d\n",msg.create_time);
+
   // Insert new details of trickle into trickle table
   sprintf(query,
-   "insert into %s.trickle values("
-   "%s,%s,%s,%s,%s,%s,%s,%s,%s,unix_timestamp(),'')",
-   strExpt,msg.id,result.userid,msg.hostid,result.id,
-   result.workunitid,trickle_msg.phase,trickle_msg.nsteps,
-   trickle_msg.cputime,msg.create_time
-  );
+   "insert into %s.trickle"
+   "(msghostid,userid,hostid,resultid,workunitid,phase,"
+   "timestep,cputime,clientdate,trickledate,ipaddr) "
+   "values(%d,%d,%d,%d,%d,%d,%d,%d,%d,from_unixtime(),'')",
+   strExpt, msg.id, result.userid, msg.hostid,
+   result.id, result.workunitid, trickle_msg.phase,
+   trickle_msg.nsteps, trickle_msg.cputime, msg.create_time
+  );    
 
   log_messages.printf(MSG_NORMAL,"Inserting into trickle table: %s\n",query);
   retval = cpdn_db.do_query(query);
