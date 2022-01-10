@@ -444,7 +444,7 @@ int insert_trickle(MSG_FROM_HOST &msg,TRICKLE_MSG &trickle_msg,DB_RESULT &result
    "insert into %s.trickle"
    "(msghostid,userid,hostid,resultid,workunitid,phase,"
    "timestep,cputime,clientdate,trickledate,ipaddr) "
-   "values(%d,%d,%d,%d,%d,%d,%d,%d,%d,from_unixtime(),'')",
+   "values(%d,%d,%d,%d,%d,%d,%d,%d,%d,unix_timestamp(),'')",
    strExpt, msg.id, result.userid, msg.hostid,
    result.id, result.workunitid, trickle_msg.phase,
    trickle_msg.nsteps, trickle_msg.cputime, msg.create_time
