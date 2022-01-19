@@ -24,7 +24,6 @@
 
 // trickle_handler - framework for trickle-up message handler
 //
-//  --variety variety
 //  [--d debug_level]
 //  [--one_pass]     // make one pass through table, then exit
 //
@@ -51,8 +50,6 @@
 #include "sched_msgs.h"
 #include "cpdn_trickle_handler.h"
 
-char variety[256];
-
 // make one pass through trickle_ups with handled == 0
 //
 bool do_trickle_scan() {
@@ -61,7 +58,7 @@ bool do_trickle_scan() {
     bool found=false;
     int retval;
 
-    sprintf(buf, "where variety='%s' and handled=0", variety);
+    sprintf(buf, "where handled=0");
     while (1) {
         retval = mfh.enumerate(buf);
         if (retval) {
@@ -122,7 +119,6 @@ void usage(char *name) {
         "return nonzero on error\n\n"
         "Usage: %s [OPTION]...\n\n"
         "Options:\n"
-        "  --variety X                     Set Variety to X\n"
         "  [ -d X ]                        Set debug level to X\n"
         "  [ --one_pass ]                  Make one pass through table, then exit\n"
         "  [ -h | --help ]                 Show this help text\n"
@@ -141,15 +137,6 @@ int main(int argc, char** argv) {
     for (i=1; i<argc; i++) {
         if (is_arg(argv[i], "one_pass")) {
             one_pass = true;
-        } else if (is_arg(argv[i], "variety")) {
-            if (!argv[++i]) {
-                log_messages.printf(MSG_CRITICAL,
-                    "%s requires an argument\n\n", argv[--i]
-                );
-                usage(argv[0]);
-                exit(1);
-            }
-            safe_strcpy(variety, argv[i]);
         } else if (!strcmp(argv[i], "-d")) {
             if (!argv[++i]) {
                 log_messages.printf(MSG_CRITICAL,
