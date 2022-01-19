@@ -12,10 +12,10 @@ g++ -I "../.."/lib -I "../.."/db -I "../.."/sched -I "../.." -I/usr/include/mysq
 
 This executable then needs to be moved to your BOINC project's 'bin' folder.
 
-In order for it to be executed on a regular basis by the BOINC project, the following needs to then be added to the BOINC project config.xml file:
+In order for it to be executed on a regular basis by the BOINC project, the following needs to then be added to the BOINC project config.xml file (fill in the path to the project directory):
 
     <daemon>
-      <cmd>cpdn_credit -dir /storage/www/cpdnboinc_alpha/trickle/ </cmd>
+      <cmd>cpdn_credit -dir /PROJECT_DIRECTORY/trickle/ </cmd>
     </daemon>
     
 Now finally stop and start your BOINC project.
