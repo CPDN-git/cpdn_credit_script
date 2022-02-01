@@ -29,7 +29,7 @@ using namespace std;
 #include "../../sched/sched_util.h"
 #include "cpdn_db.h"
 
-#define MAX_STEPS_PER_TRICKLE 6000000
+#define MAX_STEPS_PER_TRICKLE 100000000
 
 bool calc_wah2_darwin_credit(DB_RESULT& result);
 
