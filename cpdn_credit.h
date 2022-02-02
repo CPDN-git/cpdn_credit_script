@@ -38,12 +38,9 @@ struct TRICKLE_MSG {
     int phase,nsteps,cputime;
     double version;
     int parse(XML_PARSER& xp) {
-      nsteps = -1;
+      nsteps = 0;
       strcpy(result_name, "");
       while (!xp.get_tag()) {
-        if (nsteps>=0 && strlen(result_name)) {
-          return 0;
-        }
         if (xp.parse_str("result_name", result_name, sizeof(result_name))) {
           continue;
         } 
@@ -52,6 +49,6 @@ struct TRICKLE_MSG {
         if (xp.parse_int("cp", cputime)) continue;
         if (xp.parse_double("vr", version)) continue;
       }
-      return -1;
+      return 0;
     }
 };
