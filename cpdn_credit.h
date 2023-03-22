@@ -41,13 +41,11 @@ struct TRICKLE_MSG {
       nsteps = 0;
       strcpy(result_name, "");
       while (!xp.get_tag()) {
-        if (xp.parse_str("result_name", result_name, sizeof(result_name))) {
-          continue;
-        } 
-        if (xp.parse_int("ph", phase)) continue;
-        if (xp.parse_int("ts", nsteps)) continue;
-        if (xp.parse_int("cp", cputime)) continue;
-        if (xp.parse_double("vr", version)) continue;
+        if (xp.parse_str("result_name", result_name, sizeof(result_name)));
+        if (xp.parse_int("ph", phase));
+        if (xp.parse_int("ts", nsteps));
+        if (xp.parse_int("cp", cputime));
+        if (xp.parse_double("vr", version));
       }
       return 0;
     }
