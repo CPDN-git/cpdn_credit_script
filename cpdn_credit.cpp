@@ -156,7 +156,7 @@ int handle_trickle(MSG_FROM_HOST& msg) {
       );
 
       // Calculate the incremental credit to add to the host, user and team credits
-      // Include additional factor of 9% to match old credit scheme
+      // The additional factor of 9% was tuned to match as much as possible the previous credit system
       incremental_credit = (labs(credit - result.granted_credit)) * 1.09;
       credit = credit * 1.09;
 
