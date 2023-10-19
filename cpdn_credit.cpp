@@ -317,7 +317,7 @@ int credit_grant(DB_HOST &host, double start_time, double credit) {
 
     // update the host total_credit value
     sprintf(
-      buf, "total_credit=%f", expavg_credit=%.15e, expavg_time=%.15e",
+      buf, "total_credit=%f, expavg_credit=%.15e, expavg_time=%.15e",
       host.total_credit, host.expavg_credit, host.expavg_time
     );
 
