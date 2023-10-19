@@ -87,7 +87,7 @@ int main_loop(bool one_pass) {
         log_messages.printf(MSG_NORMAL,
             "Starting loop in main_loop\n"
         );
-        log_messages.printf(MSG_NORMAL, "Now in main loop\n");
+        //log_messages.printf(MSG_NORMAL, "Now in main loop\n");
         check_stop_daemons();
 
         // award credit for completed WAH2 Darwin workunits
