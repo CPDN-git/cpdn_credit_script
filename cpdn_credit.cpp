@@ -212,7 +212,7 @@ bool handle_wah2_darwin_workunits() {
     char buf[256];
     int retval;
 
-    log_messages.printf(MSG_NORMAL, "Now in handle_wah2_darwin_workunits\n");
+    //log_messages.printf(MSG_NORMAL, "Now in handle_wah2_darwin_workunits\n");
 
     // find completed WAH2 workunits that have been run on a Darwin machine and do not have credit awarded
     sprintf(buf, "where outcome = 1 and granted_credit = 0 and appid = 30");
