@@ -144,7 +144,7 @@ int handle_trickle(MSG_FROM_HOST& msg) {
 
       double start_time;
       // the time of the previous trickle
-      // is stored in result.opaque
+      // can be stored in result.opaque
       if (result.opaque) {
         start_time = result.opaque;
       } else {
