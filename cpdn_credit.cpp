@@ -158,7 +158,9 @@ int handle_trickle(MSG_FROM_HOST& msg) {
 
       // Calculate the incremental credit to add to the host, user and team credits
       // The additional factor of 9% was tuned to match as much as possible the previous credit system
+      log_messages.printf(MSG_NORMAL,"credit: %f, result.granted_credit %f\n", credit,result.granted_credit);
       incremental_credit = (fabs(credit - result.granted_credit)) * 1.09;
+      log_messages.printf(MSG_NORMAL,"incremental_credit: %f\n",incremental_credit);
       credit = credit * 1.09;
 
       log_messages.printf(MSG_NORMAL,
