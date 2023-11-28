@@ -11,6 +11,7 @@
 #include "cpdn_trickle_handler.h"
 #include "cpdn_db.h"
 #include "cpdn_credit.h"
+#include "math.h"
 
 DB_MODEL g_dbModel[MAX_MODELS];
 char strDB[64];
