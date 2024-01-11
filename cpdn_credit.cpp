@@ -160,7 +160,7 @@ int handle_trickle(MSG_FROM_HOST& msg) {
       // The additional factor of 9% was tuned to match as much as possible the previous credit system
       log_messages.printf(MSG_NORMAL,"credit: %f, result.granted_credit %f\n", credit,result.granted_credit);
       credit = credit * 1.09;
-      incremental_credit = (fabs(credit - result.granted_credit)) * 1.09;
+      incremental_credit = fabs(credit - result.granted_credit);
 
       log_messages.printf(MSG_NORMAL,
         "result_id=%ld, host_id=%ld, incremental_credit=%1.6f\n", result.id, host.id, incremental_credit
