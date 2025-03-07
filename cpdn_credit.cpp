@@ -402,12 +402,11 @@ int lookup(const int resultid) {
     // lookup all Darwin workunits and calculate credit
     // based on the number of upload files 
     
-    // SUBSITUTE IN BATCH_TABLE AND WORKUNIT_TABLE NAMES
     sprintf(query,
       "select 761.548*(cb.ul_files-1) "
-      "from %s.result r, %s.host h, %s.WORKUNIT_TABLE cw, %s.BATCH_TABLE cb "
+      "from %s.result r, %s.host h, %s.cpdn_workunit cw, %s.cpdn_batch cb "
       "where r.id=%d and r.hostid=h.id and h.os_name='Darwin' and "
-      "r.workunitid=cw.wuid and cw.BATCH_TABLE=cb.id",
+      "r.workunitid=cw.wuid and cw.cpdn_batch=cb.id",
       strDB,strDB,strExpt,strExpt,resultid
     );
 
