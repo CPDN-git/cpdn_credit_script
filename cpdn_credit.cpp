@@ -262,8 +262,8 @@ bool calc_wah2_darwin_credit(DB_RESULT& result) {
     retval = lookup(result.id);
 
     if (retval) {
-      log_messages.printf(MSG_CRITICAL,
-        "Result ID %ld: result lookup failed, error code: %s\n", result.id, boincerror(retval)
+      log_messages.printf(MSG_NORMAL,
+        "Result ID %ld: result lookup failed not a macOS host\n", result.id
       );
     }
     
