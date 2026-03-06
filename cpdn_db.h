@@ -1,4 +1,5 @@
 // based off of boinc/db/boinc_db.h
+// Included headers are from the boinc source directory.
 
 #ifndef _CPDN_DB_
 #define _CPDN_DB_
@@ -7,21 +8,23 @@
 #include <cstdio>
 #include <vector>
 
-#include "db_base.h"
+// BOINC specific headers from boinc source directory
+#include "db/db_base.h"
 
 extern DB_CONN cpdn_db;
 
 // Sizes of text buffers in memory, corresponding to database BLOBs.
 // Large is for fields with user-supplied text, and preferences
 
-#include "boinc_db.h"
+#include "db/boinc_db.h"
 
 #define LARGE_BLOB_SIZE APP_VERSION_XML_BLOB_SIZE
 
 // A compilation target, i.e. a architecture/OS combination.
 // The core client will be given only applications with the same platform
 //
-struct TRICKLE {
+struct TRICKLE
+{
     int trickleid;
     int msghostid;
     int userid;
@@ -38,7 +41,8 @@ struct TRICKLE {
 };
 
 // model information
-struct MODEL {
+struct MODEL
+{
     int modelid;
     char description[129];
     int phase;
@@ -53,17 +57,19 @@ struct MODEL {
     void clear();
 };
 
-class DB_TRICKLE: public DB_BASE, public TRICKLE {
+class DB_TRICKLE : public DB_BASE, public TRICKLE
+{
 public:
-    DB_TRICKLE(DB_CONN* dc=0);
-    void db_print(char* buf);
+    DB_TRICKLE(DB_CONN *dc = 0);
+    void db_print(char *buf);
     void db_parse(MYSQL_ROW &row);
 };
 
-class DB_MODEL: public DB_BASE, public MODEL {
+class DB_MODEL : public DB_BASE, public MODEL
+{
 public:
-    DB_MODEL(DB_CONN* dc=0);
-    void db_print(char* buf);
+    DB_MODEL(DB_CONN *dc = 0);
+    void db_print(char *buf);
     void db_parse(MYSQL_ROW &row);
 };
 

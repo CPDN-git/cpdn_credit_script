@@ -1,6 +1,5 @@
-// This is a fork of trickle_handler.h, a BOINC file. This file has 
-// been forked in order to incorporate bespoke CPDN features. 
-
+// This is a fork of trickle_handler.h, a BOINC file. This file has
+// been forked in order to incorporate bespoke CPDN features.
 
 // BOINC file notes for trickle_handler.h:
 
@@ -21,11 +20,11 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with BOINC.  If not, see <http://www.gnu.org/licenses/>.
 
-#include "boinc_db.h"
+#include "db/boinc_db.h"
 
 // functions supplied by the handler
 
-extern int handle_trickle(MSG_FROM_HOST&);
-extern int handle_trickle_init(int argc, char** argv);
+extern int handle_trickle(MSG_FROM_HOST &);
+extern int handle_trickle_init(int argc, char **argv);
 
 extern bool handle_wah2_darwin_workunits();
