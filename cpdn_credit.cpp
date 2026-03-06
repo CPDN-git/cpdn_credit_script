@@ -32,18 +32,18 @@ int handle_trickle_init(int argc, char** argv) {
     int retval;
 
     // SUBSITUTE IN NAMES OF DATABASES HERE
-    if (!strcmp(config.db_name, "NAME_OF_MAIN_DATABASE")) {
+    if (!strcmp(config.db_name, "cpdnboinc")) {
       // production database
-      strcpy(strDB, "MAIN_DATABASE");
-      strcpy(strExpt, "EXPERIMENT_DATABASE");
-    } else if (!strcmp(config.db_name, "NAME_OF_MAIN_TEST_DATABASE")) {
+      strcpy(strDB, "cpdnboinc");
+      strcpy(strExpt, "cpdnexpt");
+    } else if (!strcmp(config.db_name, "cpdnboinc_dev")) {
       // second test site database
-      strcpy(strDB, "MAIN_DATABASE");
-      strcpy(strExpt, "EXPERIMENT_DATABASE");
+      strcpy(strDB, "cpdnboinc_dev");
+      strcpy(strExpt, "cpdnexpt_dev");
     } else {
       // first test site database
-      strcpy(strDB, "MAIN_DATABASE");
-      strcpy(strExpt, "EXPERIMENT_DATABASE");
+      strcpy(strDB, "cpdnboinc_alpha");
+      strcpy(strExpt, "cpdnexpt_alpha");
     }
 
     log_messages.printf(MSG_NORMAL,"Main database is: %s\n", strDB);
@@ -145,7 +145,7 @@ int handle_trickle(MSG_FROM_HOST& msg) {
 
       double start_time;
       // the time of the previous trickle
-      // can be stored in result.opaque
+      // is stored in result.opaque
       if (result.opaque) {
         start_time = result.opaque;
       } else {
