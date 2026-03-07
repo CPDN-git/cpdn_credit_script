@@ -446,11 +446,11 @@ create_expt_schema() {
             \`phase\` INT NOT NULL DEFAULT 0,
             \`timestep\` INT NOT NULL DEFAULT 0,
             \`workunit\` INT NOT NULL DEFAULT 0,
-            \`archive\` VARCHAR(32) NOT NULL DEFAULT '',
+            \`archive\` BLOB NULL,
             \`benchmark\` INT NOT NULL DEFAULT 0,
             \`timestep_per_year\` INT NOT NULL DEFAULT 0,
             \`credit_per_timestep\` DOUBLE NOT NULL DEFAULT 0,
-            \`boinc_name\` VARCHAR(255) NOT NULL DEFAULT '',
+            \`boinc_name\` VARCHAR(254) NULL,
             \`trickle_timestep\` INT NOT NULL DEFAULT 0,
             PRIMARY KEY (\`modelid\`)
         )
@@ -469,7 +469,7 @@ create_expt_schema() {
             \`cputime\` INT DEFAULT 0,
             \`clientdate\` INT DEFAULT 0,
             \`trickledate\` INT DEFAULT 0,
-            \`ipaddr\` VARCHAR(25) NOT NULL DEFAULT '',
+            \`ipaddr\` VARCHAR(24) NULL,
             \`data\` VARCHAR(512) NULL,
             PRIMARY KEY (\`trickleid\`)
         )
