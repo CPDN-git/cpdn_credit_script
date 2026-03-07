@@ -20,6 +20,7 @@
 #include "lib/parse.h"
 #include "lib/str_util.h"
 #include "lib/util.h"
+#include "lib/error_numbers.h"
 #include "db/boinc_db.h"
 #include "sched/credit.h"
 
@@ -185,6 +186,14 @@ int handle_trickle(MSG_FROM_HOST &msg)
         log_messages.printf(MSG_NORMAL,
                             "Message %ld: can't find result %s\n", msg.id, trickle_msg.result_name);
         return retval;
+    }
+
+    if (result.appid < kFirstModelId || result.appid >= kMaxModels)
+    {
+        log_messages.printf(MSG_CRITICAL,
+                            "Message %ld: appid %ld is outside the g_dbModel cache range [%d,%d)\n",
+                            msg.id, result.appid, kFirstModelId, kMaxModels);
+        return ERR_INVALID_PARAM;
     }
 
     DB_MODEL &model = g_dbModel[result.appid];

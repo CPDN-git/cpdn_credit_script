@@ -80,6 +80,9 @@ bool do_trickle_scan()
             log_messages.printf(MSG_CRITICAL,
                                 "handle_trickle(): %s\n", boincerror(retval));
         }
+        // NOTE: some write failures inside handle_trickle() are only logged and
+        // are not fed back up here, so this handled update can still treat a
+        // failed trickle as success. This error handling needs to be corrected.
         mfh.handled = true;
         mfh.update();
         found = true;
