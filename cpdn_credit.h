@@ -3,11 +3,8 @@
 #include <vector>
 #include <string>
 #include <time.h>
-using namespace std;
 
-#ifndef _MAX_PATH
-#define _MAX_PATH 512
-#endif
+using namespace std;
 
 // 100 models should be enough
 #define MAX_MODELS 100
