@@ -26,14 +26,14 @@ The core processing logic is in `cpdn_credit.cpp`. The loop/framework for pollin
    - After processing attempt, message is marked handled (`mfh.handled = true; mfh.update()`).
 
 4. Per-trickle processing (`handle_trickle()`):
-   - Parse XML tags into `TRICKLE_MSG`: `result_name`, `ph`, `ts`, `cp`, `vr`.
+   - Parse XML tags into `TRICKLE_MSG`: `result_name`, `data`, `ph`, `ts`, `cp`, `vr`.
    - Look up BOINC `result` by `result_name`.
    - Use `result.appid` to select model config (`credit_per_timestep`).
    - Compute credit from timesteps (`ts`) and model rate, then apply 9% correction factor.
    - Compute incremental credit vs existing `result.granted_credit`.
    - Update host/user/team totals via `credit_grant()`.
    - Update `result.granted_credit` and `result.claimed_credit`.
-   - Insert a normalized row into experiment `trickle` table.
+   - Insert a normalized row into experiment `trickle` table, storing `data` for `general` trickles and `NULL` for `orig`.
    - Update `result.opaque` (last handled time) and `result.app_version_num` (stored timestep count).
 
 ## Database Table Reads and Writes (Detailed)
@@ -69,7 +69,7 @@ The core processing logic is in `cpdn_credit.cpp`. The loop/framework for pollin
 
 4. Insert trickle row into experiment DB:
    - `insert_trickle()` executes SQL:
-     - `insert into <expt>.trickle(msghostid, userid, hostid, resultid, workunitid, phase, timestep, cputime, clientdate, trickledate, ipaddr) values (...)`
+     - `insert into <expt>.trickle(msghostid, userid, hostid, resultid, workunitid, phase, timestep, cputime, clientdate, trickledate, ipaddr, data) values (...)`
 
 5. Host/user/team credit totals and RAC-like averages:
    - `host.update_field(...)`
@@ -91,44 +91,23 @@ Then it compares this to current result credit and grants only the incremental d
 
 `ph` (phase) is currently parsed and stored in the `trickle` table, but current credit calculation uses `ts`, not `ph`.
 
-## Planned Changes for New Trickle Type (Credit Logic Not Changed Yet)
+## Current Trickle Variety Behavior
 
-Goal: retain existing trickle behavior while adding a new trickle with:
+The code now supports both supported trickle varieties:
 
-- `<data>` string payload (VARCHAR(512)) stored in the existing `trickle` table
-- trickle type identified by `msg_from_host.variety` (`orig` vs `general`)
+- `orig`:
+  - Existing credit behavior is unchanged.
+  - Empty or missing `<data>` is stored as `NULL` in the experiment `trickle` table.
+- `general`:
+  - Credit calculation is still driven by `ts`; `data` does not affect credit.
+  - `<data>` is parsed from the XML and stored in `trickle.data` when it is present and valid.
+  - Invalid or control-character-containing `data` falls back to `NULL` without aborting credit processing.
 
-### Code Areas That Need Changes
+Implementation notes:
 
-1. `TRICKLE_MSG` parsing (`cpdn_credit.h`):
-   - Add field for `data`.
-   - Parse `<data>` while retaining existing `<ph>`, `<ts>`, `<cp>`, `<vr>`.
-   - Source trickle type from `MSG_FROM_HOST.variety` in DB (not from XML).
-
-2. `handle_trickle()` branching (`cpdn_credit.cpp`):
-   - Branch on `msg.variety`:
-     - `orig`: existing behavior unchanged.
-     - `general`: accept/store `data`; `ph` may be present or empty.
-   - Keep credit calculation identical for all varieties (always driven by `ts`).
-
-3. Trickle insert SQL (`insert_trickle()` in `cpdn_credit.cpp`):
-   - Extend insert columns/values to persist `data`.
-   - Ensure proper SQL escaping for `data` string.
-   - Preserve ability to write existing `orig` rows.
-   - `orig` with empty `<data></data>` should store `NULL` (not empty string).
-   - For invalid `data` content, continue credit processing but store `NULL`.
-
-4. DB trickle model mapping (`cpdn_db.h` and `cpdn_db.cpp`):
-   - Extend `TRICKLE` struct with `data`.
-   - Update `DB_TRICKLE::db_parse()` and `DB_TRICKLE::db_print()` accordingly.
-
-5. DB schema migration (external to this code):
-   - Add `data` column to existing experiment `trickle` table.
-   - Keep current columns (`phase`, etc.) so `orig` remains supported.
-
-### Implementation Caution
-
-`TRICKLE_MSG::parse()` currently initializes `nsteps` and `result_name`, but not all numeric fields if tags are missing. Introducing `general` (without `ph`) should include explicit initialization/defaulting so missing tags do not produce undefined values.
+1. `TRICKLE_MSG::parse()` now initializes all numeric fields and the `data` buffer defensively so missing tags do not leave undefined values.
+2. Trickle type is taken from `msg_from_host.variety`, not from the XML payload.
+3. The experiment `trickle` table is expected to have a nullable `data VARCHAR(512)` column.
 
 ## Build and Test Update
 
@@ -147,6 +126,7 @@ Build and test infrastructure now uses BOINC source paths and static BOINC libs:
    - `credit_varieties`
 4. Test script:
    - `test/run_test.sh`
+   - `test/setup_test.sh`
 5. Test docs:
    - `test/README.md`
 
@@ -158,15 +138,25 @@ Header include model:
 Test behavior:
 
 1. Checks for `mariadb`/`mysql` client.
-2. Seeds temporary fixtures (`result`, `model`, and two `msg_from_host` rows: `orig` and `general`).
-3. Generates a minimal BOINC `config.xml` in `CPDN_RUN_DIR` if missing.
-4. Creates `CPDN_RUN_DIR/cgi-bin` if missing so BOINC treats it as a project directory.
-5. Runs `cpdn_credit --one_pass`.
-6. Verifies:
+2. Uses credentials from environment variables or `CPDN_RUN_DIR/config.xml`, defaulting to local `boinc` credentials instead of MySQL `root`.
+3. `test/setup_test.sh` can provision the local test DB user and bootstrap minimal local test DBs when they do not exist.
+4. Seeds temporary fixtures (`result`, `model`, and two `msg_from_host` rows: `orig` and `general`).
+5. Generates a minimal BOINC `config.xml` in `CPDN_RUN_DIR` if missing.
+6. Creates `CPDN_RUN_DIR/cgi-bin` if missing so BOINC treats it as a project directory.
+7. Runs `cpdn_credit --one_pass`.
+8. Verifies:
    - both messages are marked handled
    - expected credit is awarded
    - `orig` and `general` credit values are equal
    - trickle rows are inserted for both
    - `orig` row has `data IS NULL`
    - `general` row has expected `data` value
-7. Cleans up fixtures by default (optional keep mode for debugging).
+9. Cleans up fixtures by default (optional keep mode for debugging).
+
+Local DB setup behavior:
+
+1. `test/setup_test.sh` provisions the local test DB user separately from the test run.
+2. On Debian/MariaDB systems it should prefer `sudo mariadb` socket auth by default instead of assuming a MySQL root password exists.
+3. It should create or reset the local test user (typically `boinc`) and grant access to both `CPDN_MAIN_DB` and `CPDN_EXPT_DB`.
+4. If the local test DBs do not exist, it should bootstrap the minimal BOINC/expt schema and seed rows needed by `test/run_test.sh`.
+5. If a target DB already exists, it should not drop or rewrite that DB; if the schema is unsuitable it should fail clearly instead.

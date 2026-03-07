@@ -1,4 +1,4 @@
-# CPDN Credit Script
+# CPDN Credit Awarding Code
 
 ## Purpose
 
@@ -9,43 +9,49 @@
 3. Writes normalized trickle records into the CPDN experiment `trickle` table.
 4. Handles a fallback Darwin/macOS credit path for specific completed workunits.
 
+Two trickle `variety` tags are supported: `orig` and `general`. The first is a 
+subset of `general` as it doesn't use the `data` field; it was used by the UKMO
+models. `general` is used by the OpenIFS models to return small data values
+for diagnostics (such as model spread).
+
 ## Repository Placement
 
-This project now builds against BOINC source-tree headers and BOINC static archives.
-It does not need to live under the BOINC source tree, but CMake must be given the BOINC source path.
+This project builds against BOINC source-tree headers and BOINC static compiled libraries.
+It does not need to be placed under the BOINC source tree to compile, 
+but CMake must be given the BOINC source path.
 
 ## Prerequisites
 
 1. BOINC source downloaded from github and built (no `make install` required).
 2. CMake 3.16+.
-3. C++ compiler (e.g. `g++`).
+3. C++ compiler.
 4. MySQL/MariaDB development headers and client libraries.
 
 ### BOINC
 
 Download the BOINC repo and check out the same branch as used for the server (8.0.2 in this example).
-You may also need to install additional system software such as mariadb (for myself),
-curl, etc. Check the output from the configure log or see BOINC install instructions.
+You may also need to install additional system software such as mariadb,
+curl, etc, if not present on the machine. Check the output from the configure log or see BOINC install instructions.
 
 To build boinc (adjust install --prefix as needed)
 
 ```bash
 ./_autosetup
 ./configure --prefix="${HOME}/github/boinc-8.0.2-x86_64"  \
-            --enable-server --enable-client --disable-apps --enable-libraries  \
+            --enable-server --enable-client --enable-libraries --disable-apps --disable-manager  \
             --build=i686-pc-linux-gnu --host=i686-pc-linux-gnu   \
-              "CFLAGS=-g -O2 ${M32}" "CXXFLAGS=-g -O2"
+              "CFLAGS=-g -O2" "CXXFLAGS=-g -O2"
 make
 ```
 
-'--enable-server --enable-libraries' must be specified.
+Note: '--enable-server --enable-libraries' must be specified.
 
 No 'make install' step is needed as this code needs to reference headers directly in the 
 source tree, which are not copied to the install location on a make install.
 
 #### Python2 distutils problem
 
-If BOINC builds fails with python error:
+If the BOINC build fails with the python error:
 
 ```bash
 Making all in py
@@ -57,23 +63,21 @@ Traceback (most recent call last):
 ModuleNotFoundError: No module named 'distutils'
 ```
 
-Make sure the following packages are installed on the system:
+1. Make sure the following packages are installed on the system:
 
 ```bash
 sudo apt install python3 python-is-python3 python3-setuptools
 ```
 
-py/setup.py in BOINC (v8.0.2) uses distutils which was removed in Python 3.12. Also the py/Makefile.am
-hardcodes 'python' not 'python3'.
-
-Patch the BOINC python script:
+2. py/setup.py in BOINC (v8.0.2) uses distutils which was removed in Python 3.12. Also the py/Makefile.am
+hardcodes 'python' not 'python3'.  Patch the BOINC python script:
 
 ```bash
 cd boinc    # location of the cloned boinc repo
 sed -i 's/from distutils.core import setup/from setuptools import setup/' py/setup.py.in py/setup.py
 ```
 
-Then rerun the autosetup & configures steps above to remake the Makefiles.
+3. Then rerun the autosetup & configures steps above to remake the Makefiles.
 
 #### Manually compile libsched
 
@@ -86,7 +90,7 @@ make -C /home/glenn/github/boinc/sched libsched.a
 
 ## Build cpdn_credit with CMake
 
-The top-level `CMakeLists.txt` now uses these BOINC variables:
+The top-level `CMakeLists.txt` uses these BOINC variables:
 
 1. `BOINC_SRC` (path to BOINC source tree; required)
 2. `BOINC_SCHED_STATIC` (default: `${BOINC_SRC}/sched/libsched.a`)
@@ -97,6 +101,11 @@ The top-level `CMakeLists.txt` now uses these BOINC variables:
 
 ```bash
 export BOINC_SRC="${HOME}/github/boinc"
+```
+
+If MariaDB is not installed in a standard directory, also set:
+
+```bash
 export MYSQL_INCLUDE_DIR=/usr/include/mysql
 export MYSQL_LIBRARY_DIR=/usr/lib64
 export MYSQL_EXTRA_LIBRARY_DIR=/usr/lib64/mysql
@@ -105,14 +114,19 @@ export MYSQL_EXTRA_LIBRARY_DIR=/usr/lib64/mysql
 ### 2) Configure
 
 ```bash
-cmake -S . -B build \
-  -DBOINC_SRC="${BOINC_SRC}" \
+cmake -S . -B build  -DBOINC_SRC="${BOINC_SRC}"
+```
+
+If the BOINC libraries or MYSQL files are located in non-standard
+directories, these paths can also be set:
+
+```bash
   -DBOINC_SCHED_STATIC="${BOINC_SRC}/sched/libsched.a" \
   -DBOINC_CRYPT_STATIC="${BOINC_SRC}/lib/libboinc_crypt.a" \
   -DBOINC_CORE_STATIC="${BOINC_SRC}/lib/libboinc.a" \
   -DMYSQL_INCLUDE_DIR="${MYSQL_INCLUDE_DIR}" \
   -DMYSQL_LIBRARY_DIR="${MYSQL_LIBRARY_DIR}" \
-  -DMYSQL_EXTRA_LIBRARY_DIR="${MYSQL_EXTRA_LIBRARY_DIR}"
+  -DMYSQL_EXTRA_LIBRARY_DIR="${MYSQL_EXTRA_LIBRARY_DIR}
 ```
 
 ### 3) Compile
@@ -153,48 +167,10 @@ and asserts both varieties produce identical credit for identical `ts`.
 ### Test prerequisites
 
 1. `mariadb` or `mysql` client in `PATH`.
-2. Accessible BOINC main DB and CPDN experiment DB.
+2. Either an accessible BOINC main DB and CPDN experiment DB, or permission to let `test/setup_test.sh` bootstrap minimal local test DBs.
 3. Writable `CPDN_RUN_DIR` (the test auto-generates a minimal `config.xml` if missing).
-4. `trickle.data` column exists in the experiment DB table.
+4. If you point the test at an existing experiment DB, `trickle.data` must already exist there.
 
-### Enable test in CMake
+### Run the test
 
-```bash
-cmake -S . -B build \
-  -DBOINC_SRC="${BOINC_SRC}" \
-  -DBOINC_SCHED_STATIC="${BOINC_SRC}/sched/libsched.a" \
-  -DBOINC_CRYPT_STATIC="${BOINC_SRC}/lib/libboinc_crypt.a" \
-  -DBOINC_CORE_STATIC="${BOINC_SRC}/lib/libboinc.a" \
-  -DMYSQL_INCLUDE_DIR="${MYSQL_INCLUDE_DIR}" \
-  -DMYSQL_LIBRARY_DIR="${MYSQL_LIBRARY_DIR}" \
-  -DMYSQL_EXTRA_LIBRARY_DIR="${MYSQL_EXTRA_LIBRARY_DIR}" \
-  -DENABLE_CPDN_TEST=ON
-cmake --build build
-```
-
-### Set test environment (example)
-
-```bash
-export CPDN_MAIN_DB=cpdnboinc
-export CPDN_EXPT_DB=cpdnexpt
-export CPDN_DB_HOST=127.0.0.1
-export CPDN_DB_PORT=3306
-export CPDN_DB_USER=root
-export CPDN_DB_PASS=
-export CPDN_RUN_DIR=/path/to/boinc/projects/PROJECT
-```
-
-Optional:
-
-```bash
-export CPDN_TEMPLATE_RESULT_ID=12345
-export CPDN_ASSERT_HOST_USER_TEAM=1
-```
-
-### Run
-
-```bash
-ctest --test-dir build -R credit_varieties --output-on-failure
-```
-
-For full variable list, see `test/README.md`.
+See test/README.md for further instructions and details.
