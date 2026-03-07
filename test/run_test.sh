@@ -1,4 +1,18 @@
 #!/usr/bin/env bash
+# run_test.sh executes the DB-backed end-to-end test for cpdn_credit. It seeds
+# temporary DB fixtures, runs `cpdn_credit --one_pass`, validates credit/trickle
+# results for both `orig` and `general`, then cleans up unless told not to.
+#
+# Typical use through CTest:
+#   ctest --test-dir build -R credit_varieties --output-on-failure
+#
+# Direct use:
+#   export CPDN_DB_USER=boinc
+#   export CPDN_DB_PASS=testpass123   # same password chosen during setup
+#   ./test/run_test.sh ./build/cpdn_credit
+#
+# If the local DB user does not exist yet, provision it first:
+#   ./test/setup_test.sh
 set -euo pipefail
 
 fail() {
@@ -55,6 +69,30 @@ find_mysql_client() {
     echo ""
 }
 
+trim() {
+    printf "%s" "$1" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
+}
+
+read_config_value() {
+    local file_path="$1"
+    local key="$2"
+    if [[ ! -f "${file_path}" ]]; then
+        return 0
+    fi
+    awk -v key="${key}" '
+        {
+            while (match($0, "<" key ">[^<]*</" key ">")) {
+                value = substr($0, RSTART, RLENGTH)
+                gsub("^<" key ">", "", value)
+                gsub("</" key ">$", "", value)
+                print value
+                exit
+                $0 = substr($0, RSTART + RLENGTH)
+            }
+        }
+    ' "${file_path}"
+}
+
 BIN_PATH="${1:-}"
 if [[ -z "${BIN_PATH}" || ! -x "${BIN_PATH}" ]]; then
     fail "First argument must be an executable cpdn_credit binary path"
@@ -66,12 +104,6 @@ if [[ -z "${MYSQL_CLIENT}" ]]; then
     exit 0
 fi
 
-DB_HOST="${CPDN_DB_HOST:-127.0.0.1}"
-DB_PORT="${CPDN_DB_PORT:-3306}"
-DB_USER="${CPDN_DB_USER:-root}"
-DB_PASS="${CPDN_DB_PASS:-}"
-MAIN_DB="${CPDN_MAIN_DB:-cpdnboinc}"
-EXPT_DB="${CPDN_EXPT_DB:-cpdnexpt}"
 RUN_DIR="${CPDN_RUN_DIR:-$(pwd)}"
 
 TRICKLE_TS="${CPDN_TS:-1000}"
@@ -93,6 +125,18 @@ generated_config_xml=0
 generated_cgi_bin=0
 config_xml_path="${RUN_DIR}/config.xml"
 cgi_bin_path="${RUN_DIR}/cgi-bin"
+
+config_db_name="$(trim "$(read_config_value "${config_xml_path}" "db_name")")"
+config_db_host="$(trim "$(read_config_value "${config_xml_path}" "db_host")")"
+config_db_user="$(trim "$(read_config_value "${config_xml_path}" "db_user")")"
+config_db_pass="$(trim "$(read_config_value "${config_xml_path}" "db_passwd")")"
+
+DB_HOST="${CPDN_DB_HOST:-${config_db_host:-127.0.0.1}}"
+DB_PORT="${CPDN_DB_PORT:-3306}"
+DB_USER="${CPDN_DB_USER:-${config_db_user:-boinc}}"
+DB_PASS="${CPDN_DB_PASS:-${config_db_pass:-}}"
+MAIN_DB="${CPDN_MAIN_DB:-${config_db_name:-cpdnboinc}}"
+EXPT_DB="${CPDN_EXPT_DB:-cpdnexpt}"
 
 if [[ ! -f "${config_xml_path}" ]]; then
     db_name_xml="$(xml_escape "${MAIN_DB}")"
@@ -131,6 +175,18 @@ sql_exec() {
 
 sql_scalar() {
     "${MYSQL_CLIENT}" "${MYSQL_ARGS[@]}" -N -B -e "$1"
+}
+
+assert_db_access() {
+    local stderr_file
+    stderr_file="$(mktemp)"
+    if ! "${MYSQL_CLIENT}" "${MYSQL_ARGS[@]}" -N -B -e "SELECT 1" > /dev/null 2> "${stderr_file}"; then
+        local err_text
+        err_text="$(cat "${stderr_file}")"
+        rm -f "${stderr_file}"
+        fail "Unable to connect to MySQL as '${DB_USER}' on ${DB_HOST}:${DB_PORT}. Set CPDN_DB_USER/CPDN_DB_PASS explicitly, provide matching credentials in ${config_xml_path}, or run test/setup_test.sh to provision a local test user. mysql said: ${err_text}"
+    fi
+    rm -f "${stderr_file}"
 }
 
 require_table() {
@@ -211,6 +267,8 @@ cleanup() {
 
 trap cleanup EXIT
 
+assert_db_access
+
 require_table "${MAIN_DB}" "result"
 require_table "${MAIN_DB}" "host"
 require_table "${MAIN_DB}" "user"
@@ -282,8 +340,10 @@ fi
 if [[ -n "${CPDN_TEST_APPID:-}" ]]; then
     test_appid="${CPDN_TEST_APPID}"
 else
-    for _ in $(seq 1 25); do
-        candidate="$((1800000000 + RANDOM * 64 + RANDOM % 64))"
+    for candidate in $(seq 1 99); do
+        if [[ "${candidate}" == "30" ]]; then
+            continue
+        fi
         exists="$(sql_scalar "SELECT COUNT(*) FROM \`${EXPT_DB}\`.\`model\` WHERE modelid=${candidate}")"
         if [[ "${exists}" == "0" ]]; then
             test_appid="${candidate}"
