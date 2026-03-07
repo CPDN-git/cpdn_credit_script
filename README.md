@@ -14,6 +14,10 @@ subset of `general` as it doesn't use the `data` field; it was used by the UKMO
 models. `general` is used by the OpenIFS models to return small data values
 for diagnostics (such as model spread).
 
+Code originally adapted by Andy Bowery from BOINC credit code for CPDN.
+Later changes/additions by Glenn Carver. Test code/structure developed
+by GPT-5.4 and tweaked by Glenn.
+
 ## Repository Placement
 
 This project builds against BOINC source-tree headers and BOINC static compiled libraries.
