@@ -2,7 +2,19 @@
 //
 // This script uses two (otherwise unused) fields of the result table:
 // opaque: time the last trickle was handled
-// app_version_num: # timesteps at last trickle
+// app_version_num: # timesteps at last trickle.
+//
+// Modified by Glenn Carver, CPDN, March 2026.
+//   Added a new trickle variety "general" that allows clients to send
+//   arbitrary data in a new field "data" of the trickle message.
+//   This data is stored in the trickle table if it is not empty
+//   and does not contain control characters. The data is stored
+//   as a string up to 512 characters long. If the data is not stored,
+//   a NULL value is stored in the database for that trickle message.
+//
+//   The aim of this new 'data' field is provide small packets of
+//   data from the models for plotting on the CPDN website. This could
+//   be used to show the 'spread' of the model results across the batch.
 
 // BOINC headers
 #include "lib/parse.h"
@@ -83,18 +95,23 @@ int handle_trickle_init(int argc, char **argv)
 {
     int retval;
 
-    if (!strcmp(config.db_name, "cpdnboinc")) {
-      // production database
-      g_main_db_name = "cpdnboinc";
-      g_expt_db_name = "cpdnexpt";
-    } else if (!strcmp(config.db_name, "cpdnboinc_dev")) {
-      // development database
-      g_main_db_name = "cpdnboinc_dev";
-      g_expt_db_name = "cpdnexpt_dev";
-    } else {
-      // alpha test site database
-      g_main_db_name = "cpdnboinc_alpha";
-      g_expt_db_name = "cpdnexpt_alpha";
+    if (!strcmp(config.db_name, "cpdnboinc"))
+    {
+        // production database
+        g_main_db_name = "cpdnboinc";
+        g_expt_db_name = "cpdnexpt";
+    }
+    else if (!strcmp(config.db_name, "cpdnboinc_dev"))
+    {
+        // development database
+        g_main_db_name = "cpdnboinc_dev";
+        g_expt_db_name = "cpdnexpt_dev";
+    }
+    else
+    {
+        // alpha test site database
+        g_main_db_name = "cpdnboinc_alpha";
+        g_expt_db_name = "cpdnexpt_alpha";
     }
 
     log_messages.printf(MSG_NORMAL, "Main database is: %s\n", g_main_db_name.c_str());
@@ -102,12 +119,10 @@ int handle_trickle_init(int argc, char **argv)
 
     std::vector<char> expt_db_name(g_expt_db_name.begin(), g_expt_db_name.end());
     expt_db_name.push_back('\0');
-    retval = cpdn_db.open(
-        expt_db_name.data(), config.db_host, config.db_user, config.db_passwd);
+    retval = cpdn_db.open(expt_db_name.data(), config.db_host, config.db_user, config.db_passwd);
     if (retval)
     {
-        log_messages.printf(MSG_CRITICAL,
-                            "Can't open experiment DB %s!\n", g_expt_db_name.c_str());
+        log_messages.printf(MSG_CRITICAL, "Can't open experiment DB %s!\n", g_expt_db_name.c_str());
         return retval;
     }
     log_messages.printf(MSG_NORMAL, "Experiment DB opened.\n");
@@ -131,8 +146,7 @@ int handle_trickle_init(int argc, char **argv)
     }
     if (!bModel)
     {
-        log_messages.printf(MSG_CRITICAL,
-                            "No models found -- please check your expt database model table!\n");
+        log_messages.printf(MSG_CRITICAL, "No models found -- please check your expt database model table!\n");
         return -1;
     }
 
@@ -149,8 +163,7 @@ int handle_trickle(MSG_FROM_HOST &msg)
     int retval = host.lookup_id(msg.hostid);
     if (retval)
     {
-        log_messages.printf(MSG_NORMAL,
-                            "Message %ld: can't find host %ld\n", msg.id, msg.hostid);
+        log_messages.printf(MSG_NORMAL, "Message %ld: can't find host %ld\n", msg.id, msg.hostid);
         return retval;
     }
 
@@ -159,8 +172,7 @@ int handle_trickle(MSG_FROM_HOST &msg)
     retval = trickle_msg.parse(xp);
     if (retval)
     {
-        log_messages.printf(MSG_NORMAL,
-                            "Message %ld: can't parse message %s\n", msg.id, msg.xml);
+        log_messages.printf(MSG_NORMAL, "Message %ld: can't parse message %s\n", msg.id, msg.xml);
         return retval;
     }
 
@@ -171,8 +183,7 @@ int handle_trickle(MSG_FROM_HOST &msg)
     if (retval)
     {
         log_messages.printf(MSG_NORMAL,
-                            "Message %ld: can't find result %s\n", msg.id,
-                            trickle_msg.result_name);
+                            "Message %ld: can't find result %s\n", msg.id, trickle_msg.result_name);
         return retval;
     }
 
@@ -196,7 +207,8 @@ int handle_trickle(MSG_FROM_HOST &msg)
         credit = trickle_msg.nsteps * model.credit_per_timestep;
 
         log_messages.printf(MSG_NORMAL,
-                            "result_id=%ld, credit=%1.6f, trickle_step_number=%d, credit_per_timestep=%1.6f\n", result.id, credit, trickle_msg.nsteps, model.credit_per_timestep);
+                            "result_id=%ld, credit=%1.6f, trickle_step_number=%d, credit_per_timestep=%1.6f\n",
+                            result.id, credit, trickle_msg.nsteps, model.credit_per_timestep);
 
         double start_time;
         // the time of the previous trickle
@@ -210,8 +222,7 @@ int handle_trickle(MSG_FROM_HOST &msg)
             start_time = result.sent_time;
         }
 
-        log_messages.printf(MSG_NORMAL,
-                            "Start time: %f\n", start_time);
+        log_messages.printf(MSG_NORMAL, "Start time: %f\n", start_time);
 
         // Calculate the incremental credit to add to the host, user and team credits
         // The additional factor of 9% was tuned to match as much as possible the previous credit system
@@ -232,16 +243,14 @@ int handle_trickle(MSG_FROM_HOST &msg)
 
         // update the result granted_credit and claimed_credit values
         std::ostringstream result_credit_update;
-        result_credit_update
-            << "granted_credit=" << format_sql_double(credit)
-            << ",claimed_credit=" << format_sql_double(credit);
+        result_credit_update << "granted_credit=" << format_sql_double(credit)
+                             << ",claimed_credit=" << format_sql_double(credit);
 
         retval = result.update_field(result_credit_update.str().c_str());
         if (retval)
         {
             log_messages.printf(MSG_CRITICAL,
-                                "Update of result %lu failed: %s\n",
-                                result.id, boincerror(retval));
+                                "Update of result %lu failed: %s\n", result.id, boincerror(retval));
         }
 
         // Insert details of the trickle into the trickle table
@@ -256,9 +265,8 @@ int handle_trickle(MSG_FROM_HOST &msg)
 
     // update opaque and app_version_num fields in result
     std::ostringstream result_progress_update;
-    result_progress_update
-        << "opaque=" << format_sql_double(dtime())
-        << ", app_version_num=" << trickle_msg.nsteps;
+    result_progress_update << "opaque=" << format_sql_double(dtime())
+                           << ", app_version_num=" << trickle_msg.nsteps;
     retval = result.update_field(result_progress_update.str().c_str());
     if (retval)
     {
@@ -273,13 +281,10 @@ bool handle_wah2_darwin_workunits()
     DB_RESULT result;
     int retval;
 
-    // log_messages.printf(MSG_NORMAL, "Now in handle_wah2_darwin_workunits\n");
-
     // find completed WAH2 workunits that have been run on a Darwin machine and do not have credit awarded
     const std::string where_clause = "where outcome = 1 and granted_credit = 0 and appid = 30";
     while (1)
     {
-        // log_messages.printf(MSG_NORMAL, "Now in handle_wah2_darwin_workunits loop\n");
         retval = result.enumerate(where_clause.c_str());
         if (retval)
         {
@@ -304,49 +309,42 @@ bool calc_wah2_darwin_credit(DB_RESULT &result)
 {
     DB_HOST host;
 
-    log_messages.printf(MSG_NORMAL,
-                        "Looking up host ID %ld\n", result.hostid);
+    log_messages.printf(MSG_NORMAL, "Looking up host ID %ld\n", result.hostid);
 
     // Lookup host
     host.clear();
     int retval = host.lookup_id(result.hostid);
     if (retval)
     {
-        log_messages.printf(MSG_NORMAL,
-                            "Result ID %ld: can't find host ID %ld\n", result.id, result.hostid);
+        log_messages.printf(MSG_NORMAL, "Result ID %ld: can't find host ID %ld\n", result.id, result.hostid);
         return retval;
     }
 
-    log_messages.printf(MSG_NORMAL,
-                        "Looking up result ID %ld: with host ID %ld\n", result.id, result.hostid);
+    log_messages.printf(MSG_NORMAL, "Looking up result ID %ld: with host ID %ld\n", result.id, result.hostid);
 
     total_credit = 0;
     retval = lookup(result.id);
 
     if (retval)
     {
-        log_messages.printf(MSG_NORMAL,
-                            "Result ID %ld: result lookup failed not a macOS host\n", result.id);
+        log_messages.printf(MSG_NORMAL, "Result ID %ld: result lookup failed not a macOS host\n", result.id);
     }
 
     // Apply correction factor of 9%
     credit = total_credit * 1.09;
 
-    log_messages.printf(MSG_NORMAL,
-                        "Awarding %f: to host ID %ld\n", credit, result.hostid);
+    log_messages.printf(MSG_NORMAL, "Awarding %f: to host ID %ld\n", credit, result.hostid);
 
     // update the result granted_credit and claimed_credit values
     std::ostringstream result_credit_update;
-    result_credit_update
-        << "granted_credit=" << format_sql_double(credit)
-        << ",claimed_credit=" << format_sql_double(credit);
+    result_credit_update << "granted_credit=" << format_sql_double(credit)
+                         << ",claimed_credit=" << format_sql_double(credit);
 
     retval = result.update_field(result_credit_update.str().c_str());
     if (retval)
     {
         log_messages.printf(MSG_CRITICAL,
-                            "Update of result %lu failed: %s\n",
-                            result.id, boincerror(retval));
+                            "Update of result %lu failed: %s\n", result.id, boincerror(retval));
     }
 
     // update the host, user and team total_credit values
@@ -355,7 +353,8 @@ bool calc_wah2_darwin_credit(DB_RESULT &result)
     if (retval)
     {
         log_messages.printf(MSG_CRITICAL,
-                            "Update of host and user for result ID: %ld failed, error code: %s\n", result.id, boincerror(retval));
+                            "Update of host and user for result ID: %ld failed, error code: %s\n",
+                            result.id, boincerror(retval));
     }
     return 0;
 }
@@ -367,8 +366,7 @@ int credit_grant(DB_HOST &host, double start_time, double credit)
     int retval;
     double now = dtime();
 
-    log_messages.printf(MSG_NORMAL,
-                        "Awarding (inside credit_grant) %f\n", credit);
+    log_messages.printf(MSG_NORMAL, "Awarding (inside credit_grant) %f\n", credit);
 
     // first, process the host
     update_average(
@@ -380,17 +378,15 @@ int credit_grant(DB_HOST &host, double start_time, double credit)
 
     // update the host total_credit value
     std::ostringstream host_update;
-    host_update
-        << "total_credit=" << format_sql_double(host.total_credit)
-        << ", expavg_credit=" << format_sql_double(host.expavg_credit)
-        << ", expavg_time=" << format_sql_double(host.expavg_time);
+    host_update << "total_credit=" << format_sql_double(host.total_credit)
+                << ", expavg_credit=" << format_sql_double(host.expavg_credit)
+                << ", expavg_time=" << format_sql_double(host.expavg_time);
 
     retval = host.update_field(host_update.str().c_str());
     if (retval)
     {
         log_messages.printf(MSG_CRITICAL,
-                            "Update of host %lu failed: %s\n",
-                            host.id, boincerror(retval));
+                            "Update of host %lu failed: %s\n", host.id, boincerror(retval));
     }
 
     // update the user total_credit value
@@ -399,8 +395,7 @@ int credit_grant(DB_HOST &host, double start_time, double credit)
     if (retval)
     {
         log_messages.printf(MSG_CRITICAL,
-                            "Lookup of user %lu failed: %s\n",
-                            host.userid, boincerror(retval));
+                            "Lookup of user %lu failed: %s\n", host.userid, boincerror(retval));
         return retval;
     }
 
@@ -410,17 +405,15 @@ int credit_grant(DB_HOST &host, double start_time, double credit)
         user.expavg_credit, user.expavg_time);
 
     std::ostringstream user_update;
-    user_update
-        << "total_credit=total_credit+" << format_sql_double(credit)
-        << ", expavg_credit=" << format_sql_double(user.expavg_credit)
-        << ", expavg_time=" << format_sql_double(user.expavg_time);
+    user_update << "total_credit=total_credit+" << format_sql_double(credit)
+                << ", expavg_credit=" << format_sql_double(user.expavg_credit)
+                << ", expavg_time=" << format_sql_double(user.expavg_time);
 
     retval = user.update_field(user_update.str().c_str());
     if (retval)
     {
         log_messages.printf(MSG_CRITICAL,
-                            "Update of user %lu failed: %s\n",
-                            host.userid, boincerror(retval));
+                            "Update of user %lu failed: %s\n", host.userid, boincerror(retval));
     }
 
     // update the team total_credit value
@@ -431,19 +424,15 @@ int credit_grant(DB_HOST &host, double start_time, double credit)
         if (retval)
         {
             log_messages.printf(MSG_CRITICAL,
-                                "Lookup of team %lu failed: %s\n",
-                                user.teamid, boincerror(retval));
+                                "Lookup of team %lu failed: %s\n", user.teamid, boincerror(retval));
             return retval;
         }
-        update_average(
-            now,
-            start_time, credit, CREDIT_HALF_LIFE,
-            team.expavg_credit, team.expavg_time);
+        update_average(now, start_time, credit, CREDIT_HALF_LIFE,
+                       team.expavg_credit, team.expavg_time);
         std::ostringstream team_update;
-        team_update
-            << "total_credit=total_credit+" << format_sql_double(credit)
-            << ", expavg_credit=" << format_sql_double(team.expavg_credit)
-            << ", expavg_time=" << format_sql_double(team.expavg_time);
+        team_update << "total_credit=total_credit+" << format_sql_double(credit)
+                    << ", expavg_credit=" << format_sql_double(team.expavg_credit)
+                    << ", expavg_time=" << format_sql_double(team.expavg_time);
         retval = team.update_field(team_update.str().c_str());
         if (retval)
         {
@@ -500,17 +489,6 @@ int insert_trickle(MSG_FROM_HOST &msg, TRICKLE_MSG &trickle_msg, DB_RESULT &resu
     int retval;
     bool store_data = should_store_trickle_data(msg, trickle_msg);
     std::ostringstream query;
-
-    // log_messages.printf(MSG_NORMAL,"Database: %s\n",strExpt);
-    // log_messages.printf(MSG_NORMAL,"Trickle id: %d\n",msg.id);
-    // log_messages.printf(MSG_NORMAL,"User id: %d\n",result.userid);
-    // log_messages.printf(MSG_NORMAL,"Host id: %d\n",msg.hostid);
-    // log_messages.printf(MSG_NORMAL,"result.id: %d\n",result.id);
-    // log_messages.printf(MSG_NORMAL,"workunit id: %d\n",result.workunitid);
-    // log_messages.printf(MSG_NORMAL,"Phase: %d\n",trickle_msg.phase);
-    // log_messages.printf(MSG_NORMAL,"Number of trickle steps: %d\n",trickle_msg.nsteps);
-    // log_messages.printf(MSG_NORMAL,"cputime: %d\n",trickle_msg.cputime);
-    // log_messages.printf(MSG_NORMAL,"Create time: %d\n",msg.create_time);
 
     if (store_data)
     {
