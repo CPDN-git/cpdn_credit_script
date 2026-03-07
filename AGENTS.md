@@ -2,7 +2,7 @@
 
 ## Overview
 
-This repository builds a BOINC daemon that continuously processes trickle-up messages and awards credit for CPDN results. It has two functional paths:
+This repository builds a BOINC daemon called cpdn_credit that continuously processes trickle-up messages and awards credit for CPDN results. It has two functional paths:
 
 1. Normal trickle processing from `msg_from_host` rows (`handled=0`), where trickle XML is parsed and used to update credit.
 2. A special fallback path for completed WAH2 Darwin/macOS workunits that still have zero granted credit.

@@ -20,6 +20,9 @@ This project builds against BOINC source-tree headers and BOINC static compiled 
 It does not need to be placed under the BOINC source tree to compile, 
 but CMake must be given the BOINC source path.
 
+It should be compiled on the same machine as the BOINC server using the same
+source code as the server.
+
 ## Prerequisites
 
 1. BOINC source downloaded from github and built (no `make install` required).

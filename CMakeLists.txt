@@ -1,3 +1,7 @@
+# CMake script for building cpdn_credit executable
+#
+#   Developed by GPT-5.4, prompted & edited by Glenn Carver
+
 cmake_minimum_required(VERSION 3.16)
 
 project(cpdn_credit LANGUAGES CXX)
