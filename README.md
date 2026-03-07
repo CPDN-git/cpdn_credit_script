@@ -44,6 +44,7 @@ export BOINC_SRC=$HOME/github/boinc
 mkdir build; cd build
 cmake ..  -DENABLE_CPDN_TEST=ON
 cmake --build .
+ctest --test-dir . -R credit_varieties --output-on-failure
 ```
 
 3. Run test (see test/README.md for more details). This requires a MySQL (MaraDB)
