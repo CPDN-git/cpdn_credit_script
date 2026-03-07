@@ -34,6 +34,21 @@ source code as the server.
 3. C++ compiler.
 4. MySQL/MariaDB development headers and client libraries.
 
+## Quick Start
+
+1. Build BOINC software with "--enable-server --enable-libraries" (no make install needed)
+2. Set location of BOINC source repo, configure and build: 
+
+```bash
+export BOINC_SRC=$HOME/github/boinc
+mkdir build; cd build
+cmake ..  -DENABLE_CPDN_TEST=ON
+cmake --build .
+```
+
+3. Run test (see test/README.md for more details). This requires a MySQL (MaraDB)
+installation on the computer.
+
 ### BOINC
 
 Download the BOINC repo and check out the same branch as used for the server (8.0.2 in this example).

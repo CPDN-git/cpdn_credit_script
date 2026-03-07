@@ -9,6 +9,10 @@ This repository builds a BOINC daemon called cpdn_credit that continuously proce
 
 The core processing logic is in `cpdn_credit.cpp`. The loop/framework for polling and marking trickles as handled is in `cpdn_trickle_handler.cpp`.
 
+## Repository Notes
+
+1. Review `ACTIONS.md` at the start of work and treat it as the record of deferred high-priority fixes and follow-up engineering tasks.
+
 ## Data Flow Through the Code
 
 1. Startup and DB initialization:
