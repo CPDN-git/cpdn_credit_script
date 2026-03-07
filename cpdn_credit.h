@@ -40,15 +40,22 @@ bool calc_wah2_darwin_credit(DB_RESULT &result);
 struct TRICKLE_MSG
 {
     char result_name[256];
+    char data[513];
     int phase, nsteps, cputime;
     double version;
     int parse(XML_PARSER &xp)
     {
+        phase = 0;
         nsteps = 0;
-        strcpy(result_name, "");
+        cputime = 0;
+        version = 0;
+        result_name[0] = '\0';
+        data[0] = '\0';
         while (!xp.get_tag())
         {
             if (xp.parse_str("result_name", result_name, sizeof(result_name)))
+                ;
+            if (xp.parse_str("data", data, sizeof(data)))
                 ;
             if (xp.parse_int("ph", phase))
                 ;

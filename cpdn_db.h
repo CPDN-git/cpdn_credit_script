@@ -37,6 +37,7 @@ struct TRICKLE
     int clientdate;
     int trickledate;
     char ipaddr[25];
+    char data[513];
     void clear();
 };
 

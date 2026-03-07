@@ -33,6 +33,7 @@
 // return nonzero on error
 
 #include <unistd.h>
+#include <string>
 
 // Following headers are from BOINC source code dir as not all are copied to install dir
 #include "config.h"
@@ -56,14 +57,13 @@
 bool do_trickle_scan()
 {
     DB_MSG_FROM_HOST mfh;
-    char buf[256];
     bool found = false;
     int retval;
+    const std::string where_clause = "where handled=0";
 
-    sprintf(buf, "where handled=0");
     while (1)
     {
-        retval = mfh.enumerate(buf);
+        retval = mfh.enumerate(where_clause.c_str());
         if (retval)
         {
             if (retval != ERR_DB_NOT_FOUND)

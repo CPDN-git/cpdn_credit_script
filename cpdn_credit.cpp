@@ -6,6 +6,7 @@
 
 // BOINC headers
 #include "lib/parse.h"
+#include "lib/str_util.h"
 #include "lib/util.h"
 #include "db/boinc_db.h"
 #include "sched/credit.h"
@@ -13,11 +14,14 @@
 #include "cpdn_trickle_handler.h"
 #include "cpdn_db.h"
 #include "cpdn_credit.h"
+#include <cctype>
+#include <iomanip>
+#include <sstream>
 #include "math.h"
 
 DB_MODEL g_dbModel[MAX_MODELS];
-char strDB[64];
-char strExpt[64];
+std::string g_main_db_name;
+std::string g_expt_db_name;
 double total_credit = 0;
 double credit = 0;
 
@@ -26,37 +30,84 @@ void db_parse(MYSQL_ROW &r);
 int credit_grant(DB_HOST &host, double start_time, double credit);
 int insert_trickle(MSG_FROM_HOST &msg, TRICKLE_MSG &trickle_msg, DB_RESULT &result);
 
+static bool should_store_trickle_data(MSG_FROM_HOST &msg, TRICKLE_MSG &trickle_msg)
+{
+    if (strcmp(msg.variety, "general"))
+    {
+        return false;
+    }
+    if (!trickle_msg.data[0])
+    {
+        return false;
+    }
+    for (size_t i = 0; trickle_msg.data[i]; i++)
+    {
+        if (iscntrl(static_cast<unsigned char>(trickle_msg.data[i])))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+static std::string escape_sql_string(const char *value)
+{
+    size_t input_len = value ? strlen(value) : 0;
+    std::vector<char> buffer(input_len * 2 + 1, '\0');
+
+    if (value && input_len)
+    {
+        strlcpy(buffer.data(), value, buffer.size());
+        escape_string(buffer.data(), buffer.size());
+    }
+
+    return std::string(buffer.data());
+}
+
+static std::string quote_sql_string(const char *value)
+{
+    return "'" + escape_sql_string(value) + "'";
+}
+
+static std::string format_sql_double(double value, int precision = 15)
+{
+    std::ostringstream stream;
+    stream << std::setprecision(precision) << value;
+    return stream.str();
+}
+
 // Do CPDN-specific initialization.
 // Namely, open the experiment DB and read the models.
 //
 int handle_trickle_init(int argc, char **argv)
 {
-    char strQuery[32];
     int retval;
 
     if (!strcmp(config.db_name, "cpdnboinc")) {
       // production database
-      strcpy(strDB, "cpdnboinc");
-      strcpy(strExpt, "cpdnexpt");
+      g_main_db_name = "cpdnboinc";
+      g_expt_db_name = "cpdnexpt";
     } else if (!strcmp(config.db_name, "cpdnboinc_dev")) {
       // development database
-      strcpy(strDB, "cpdnboinc_dev");
-      strcpy(strExpt, "cpdnexpt_dev");
+      g_main_db_name = "cpdnboinc_dev";
+      g_expt_db_name = "cpdnexpt_dev";
     } else {
       // alpha test site database
-      strcpy(strDB, "cpdnboinc_alpha");
-      strcpy(strExpt, "cpdnexpt_alpha");
+      g_main_db_name = "cpdnboinc_alpha";
+      g_expt_db_name = "cpdnexpt_alpha";
     }
 
-    log_messages.printf(MSG_NORMAL, "Main database is: %s\n", strDB);
-    log_messages.printf(MSG_NORMAL, "Expt database is: %s\n", strExpt);
+    log_messages.printf(MSG_NORMAL, "Main database is: %s\n", g_main_db_name.c_str());
+    log_messages.printf(MSG_NORMAL, "Expt database is: %s\n", g_expt_db_name.c_str());
 
+    std::vector<char> expt_db_name(g_expt_db_name.begin(), g_expt_db_name.end());
+    expt_db_name.push_back('\0');
     retval = cpdn_db.open(
-        strExpt, config.db_host, config.db_user, config.db_passwd);
+        expt_db_name.data(), config.db_host, config.db_user, config.db_passwd);
     if (retval)
     {
         log_messages.printf(MSG_CRITICAL,
-                            "Can't open experiment DB %s!\n", strExpt);
+                            "Can't open experiment DB %s!\n", g_expt_db_name.c_str());
         return retval;
     }
     log_messages.printf(MSG_NORMAL, "Experiment DB opened.\n");
@@ -65,9 +116,10 @@ int handle_trickle_init(int argc, char **argv)
     bool bModel = false;
     for (int i = 1; i < MAX_MODELS; i++)
     {
-        sprintf(strQuery, "WHERE modelid=%d", i);
+        std::ostringstream query;
+        query << "WHERE modelid=" << i;
         g_dbModel[i].clear();
-        g_dbModel[i].lookup(strQuery);
+        g_dbModel[i].lookup(query.str().c_str());
         if (g_dbModel[i].modelid)
         {
             bModel = true;
@@ -92,7 +144,6 @@ int handle_trickle(MSG_FROM_HOST &msg)
     DB_HOST host;
     TRICKLE_MSG trickle_msg;
     MIOFILE mf;
-    char buf[256];
     double incremental_credit = 0;
 
     int retval = host.lookup_id(msg.hostid);
@@ -115,8 +166,8 @@ int handle_trickle(MSG_FROM_HOST &msg)
 
     // find the result
     DB_RESULT result;
-    sprintf(buf, "where name='%s'", trickle_msg.result_name);
-    retval = result.lookup(buf);
+    std::string lookup_clause = "where name=" + quote_sql_string(trickle_msg.result_name);
+    retval = result.lookup(lookup_clause.c_str());
     if (retval)
     {
         log_messages.printf(MSG_NORMAL,
@@ -145,7 +196,7 @@ int handle_trickle(MSG_FROM_HOST &msg)
         credit = trickle_msg.nsteps * model.credit_per_timestep;
 
         log_messages.printf(MSG_NORMAL,
-                            "result_id=%d, credit=%1.6f, trickle_step_number=%ld, credit_per_timestep=%1.6f\n", result.id, credit, trickle_msg.nsteps, model.credit_per_timestep);
+                            "result_id=%ld, credit=%1.6f, trickle_step_number=%d, credit_per_timestep=%1.6f\n", result.id, credit, trickle_msg.nsteps, model.credit_per_timestep);
 
         double start_time;
         // the time of the previous trickle
@@ -180,11 +231,12 @@ int handle_trickle(MSG_FROM_HOST &msg)
         }
 
         // update the result granted_credit and claimed_credit values
-        sprintf(
-            buf, "granted_credit=%f,claimed_credit=%f",
-            credit, credit);
+        std::ostringstream result_credit_update;
+        result_credit_update
+            << "granted_credit=" << format_sql_double(credit)
+            << ",claimed_credit=" << format_sql_double(credit);
 
-        retval = result.update_field(buf);
+        retval = result.update_field(result_credit_update.str().c_str());
         if (retval)
         {
             log_messages.printf(MSG_CRITICAL,
@@ -203,8 +255,11 @@ int handle_trickle(MSG_FROM_HOST &msg)
     }
 
     // update opaque and app_version_num fields in result
-    sprintf(buf, "opaque=%f, app_version_num=%d", dtime(), trickle_msg.nsteps);
-    retval = result.update_field(buf);
+    std::ostringstream result_progress_update;
+    result_progress_update
+        << "opaque=" << format_sql_double(dtime())
+        << ", app_version_num=" << trickle_msg.nsteps;
+    retval = result.update_field(result_progress_update.str().c_str());
     if (retval)
     {
         log_messages.printf(MSG_CRITICAL,
@@ -216,17 +271,16 @@ int handle_trickle(MSG_FROM_HOST &msg)
 bool handle_wah2_darwin_workunits()
 {
     DB_RESULT result;
-    char buf[256];
     int retval;
 
     // log_messages.printf(MSG_NORMAL, "Now in handle_wah2_darwin_workunits\n");
 
     // find completed WAH2 workunits that have been run on a Darwin machine and do not have credit awarded
-    sprintf(buf, "where outcome = 1 and granted_credit = 0 and appid = 30");
+    const std::string where_clause = "where outcome = 1 and granted_credit = 0 and appid = 30";
     while (1)
     {
         // log_messages.printf(MSG_NORMAL, "Now in handle_wah2_darwin_workunits loop\n");
-        retval = result.enumerate(buf);
+        retval = result.enumerate(where_clause.c_str());
         if (retval)
         {
             if (retval != ERR_DB_NOT_FOUND)
@@ -249,7 +303,6 @@ bool handle_wah2_darwin_workunits()
 bool calc_wah2_darwin_credit(DB_RESULT &result)
 {
     DB_HOST host;
-    char buf[256];
 
     log_messages.printf(MSG_NORMAL,
                         "Looking up host ID %ld\n", result.hostid);
@@ -283,11 +336,12 @@ bool calc_wah2_darwin_credit(DB_RESULT &result)
                         "Awarding %f: to host ID %ld\n", credit, result.hostid);
 
     // update the result granted_credit and claimed_credit values
-    sprintf(
-        buf, "granted_credit=%f,claimed_credit=%f",
-        credit, credit);
+    std::ostringstream result_credit_update;
+    result_credit_update
+        << "granted_credit=" << format_sql_double(credit)
+        << ",claimed_credit=" << format_sql_double(credit);
 
-    retval = result.update_field(buf);
+    retval = result.update_field(result_credit_update.str().c_str());
     if (retval)
     {
         log_messages.printf(MSG_CRITICAL,
@@ -311,7 +365,6 @@ int credit_grant(DB_HOST &host, double start_time, double credit)
     DB_USER user;
     DB_TEAM team;
     int retval;
-    char buf[256];
     double now = dtime();
 
     log_messages.printf(MSG_NORMAL,
@@ -326,11 +379,13 @@ int credit_grant(DB_HOST &host, double start_time, double credit)
     host.total_credit += credit;
 
     // update the host total_credit value
-    sprintf(
-        buf, "total_credit=%f, expavg_credit=%.15e, expavg_time=%.15e",
-        host.total_credit, host.expavg_credit, host.expavg_time);
+    std::ostringstream host_update;
+    host_update
+        << "total_credit=" << format_sql_double(host.total_credit)
+        << ", expavg_credit=" << format_sql_double(host.expavg_credit)
+        << ", expavg_time=" << format_sql_double(host.expavg_time);
 
-    retval = host.update_field(buf);
+    retval = host.update_field(host_update.str().c_str());
     if (retval)
     {
         log_messages.printf(MSG_CRITICAL,
@@ -354,11 +409,13 @@ int credit_grant(DB_HOST &host, double start_time, double credit)
         start_time, credit, CREDIT_HALF_LIFE,
         user.expavg_credit, user.expavg_time);
 
-    sprintf(
-        buf, "total_credit=total_credit+%f, expavg_credit=%.15e, expavg_time=%.15e",
-        credit, user.expavg_credit, user.expavg_time);
+    std::ostringstream user_update;
+    user_update
+        << "total_credit=total_credit+" << format_sql_double(credit)
+        << ", expavg_credit=" << format_sql_double(user.expavg_credit)
+        << ", expavg_time=" << format_sql_double(user.expavg_time);
 
-    retval = user.update_field(buf);
+    retval = user.update_field(user_update.str().c_str());
     if (retval)
     {
         log_messages.printf(MSG_CRITICAL,
@@ -382,10 +439,12 @@ int credit_grant(DB_HOST &host, double start_time, double credit)
             now,
             start_time, credit, CREDIT_HALF_LIFE,
             team.expavg_credit, team.expavg_time);
-        sprintf(buf,
-                "total_credit=total_credit+%f, expavg_credit=%.15e, expavg_time=%.15e",
-                credit, team.expavg_credit, team.expavg_time);
-        retval = team.update_field(buf);
+        std::ostringstream team_update;
+        team_update
+            << "total_credit=total_credit+" << format_sql_double(credit)
+            << ", expavg_credit=" << format_sql_double(team.expavg_credit)
+            << ", expavg_time=" << format_sql_double(team.expavg_time);
+        retval = team.update_field(team_update.str().c_str());
         if (retval)
         {
             log_messages.printf(MSG_CRITICAL,
@@ -398,7 +457,6 @@ int credit_grant(DB_HOST &host, double start_time, double credit)
 
 int lookup(const int resultid)
 {
-    char query[512];
     int retval;
     MYSQL_ROW row;
     MYSQL_RES *rp;
@@ -406,14 +464,17 @@ int lookup(const int resultid)
     // lookup all Darwin workunits and calculate credit
     // based on the number of upload files
 
-    sprintf(query,
-            "select 761.548*(cb.ul_files-1) "
-            "from %s.result r, %s.host h, %s.cpdn_workunit cw, %s.cpdn_batch cb "
-            "where r.id=%d and r.hostid=h.id and h.os_name='Darwin' and "
-            "r.workunitid=cw.wuid and cw.cpdn_batch=cb.id",
-            strDB, strDB, strExpt, strExpt, resultid);
+    std::ostringstream query;
+    query << "select 761.548*(cb.ul_files-1) "
+          << "from " << g_main_db_name << ".result r, "
+          << g_main_db_name << ".host h, "
+          << g_expt_db_name << ".cpdn_workunit cw, "
+          << g_expt_db_name << ".cpdn_batch cb "
+          << "where r.id=" << resultid
+          << " and r.hostid=h.id and h.os_name='Darwin' and "
+          << "r.workunitid=cw.wuid and cw.cpdn_batch=cb.id";
 
-    retval = cpdn_db.do_query(query);
+    retval = cpdn_db.do_query(query.str().c_str());
     if (retval)
         return retval;
     rp = mysql_store_result(cpdn_db.mysql);
@@ -436,8 +497,9 @@ void db_parse(MYSQL_ROW &r)
 
 int insert_trickle(MSG_FROM_HOST &msg, TRICKLE_MSG &trickle_msg, DB_RESULT &result)
 {
-    char query[512];
     int retval;
+    bool store_data = should_store_trickle_data(msg, trickle_msg);
+    std::ostringstream query;
 
     // log_messages.printf(MSG_NORMAL,"Database: %s\n",strExpt);
     // log_messages.printf(MSG_NORMAL,"Trickle id: %d\n",msg.id);
@@ -450,18 +512,31 @@ int insert_trickle(MSG_FROM_HOST &msg, TRICKLE_MSG &trickle_msg, DB_RESULT &resu
     // log_messages.printf(MSG_NORMAL,"cputime: %d\n",trickle_msg.cputime);
     // log_messages.printf(MSG_NORMAL,"Create time: %d\n",msg.create_time);
 
-    // Insert new details of trickle into trickle table
-    sprintf(query,
-            "insert into %s.trickle"
-            "(msghostid,userid,hostid,resultid,workunitid,phase,"
-            "timestep,cputime,clientdate,trickledate,ipaddr) "
-            "values(%d,%d,%d,%d,%d,%d,%d,%d,%d,unix_timestamp(),'')",
-            strExpt, msg.id, result.userid, msg.hostid,
-            result.id, result.workunitid, trickle_msg.phase,
-            trickle_msg.nsteps, trickle_msg.cputime, msg.create_time);
+    if (store_data)
+    {
+        query << "insert into " << g_expt_db_name << ".trickle"
+              << "(msghostid,userid,hostid,resultid,workunitid,phase,"
+              << "timestep,cputime,clientdate,trickledate,ipaddr,data) "
+              << "values(" << msg.id << "," << result.userid << "," << msg.hostid
+              << "," << result.id << "," << result.workunitid << ","
+              << trickle_msg.phase << "," << trickle_msg.nsteps << ","
+              << trickle_msg.cputime << "," << msg.create_time
+              << ",unix_timestamp(),'', " << quote_sql_string(trickle_msg.data) << ")";
+    }
+    else
+    {
+        query << "insert into " << g_expt_db_name << ".trickle"
+              << "(msghostid,userid,hostid,resultid,workunitid,phase,"
+              << "timestep,cputime,clientdate,trickledate,ipaddr,data) "
+              << "values(" << msg.id << "," << result.userid << "," << msg.hostid
+              << "," << result.id << "," << result.workunitid << ","
+              << trickle_msg.phase << "," << trickle_msg.nsteps << ","
+              << trickle_msg.cputime << "," << msg.create_time
+              << ",unix_timestamp(),'', NULL)";
+    }
 
-    log_messages.printf(MSG_NORMAL, "Inserting into trickle table: %s\n", query);
-    retval = cpdn_db.do_query(query);
+    log_messages.printf(MSG_NORMAL, "Inserting into trickle table: %s\n", query.str().c_str());
+    retval = cpdn_db.do_query(query.str().c_str());
     if (retval)
         return retval;
     return 0;
