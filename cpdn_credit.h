@@ -6,8 +6,8 @@
 
 using namespace std;
 
-// 100 models should be enough
-#define MAX_MODELS 100
+constexpr int kMaxModels = 100;
+constexpr int kFirstModelId = 1;
 
 #include <unistd.h>
 #include <signal.h>
@@ -30,14 +30,14 @@ using namespace std;
 
 #include "cpdn_db.h"
 
-#define MAX_STEPS_PER_TRICKLE 100000000
+constexpr int kMaxStepsPerTrickle = 100000000;
 
 bool calc_wah2_darwin_credit(DB_RESULT &result);
 
 struct TRICKLE_MSG
 {
-    char result_name[256];
-    char data[513];
+    char result_name[kResultNameBufferSize];
+    char data[kTrickleDataBufferSize];
     int phase, nsteps, cputime;
     double version;
     int parse(XML_PARSER &xp)

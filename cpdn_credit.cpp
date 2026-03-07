@@ -31,7 +31,7 @@
 #include <sstream>
 #include "math.h"
 
-DB_MODEL g_dbModel[MAX_MODELS];
+DB_MODEL g_dbModel[kMaxModels];
 std::string g_main_db_name;
 std::string g_expt_db_name;
 double total_credit = 0;
@@ -129,7 +129,7 @@ int handle_trickle_init(int argc, char **argv)
 
     // read models
     bool bModel = false;
-    for (int i = 1; i < MAX_MODELS; i++)
+    for (int i = kFirstModelId; i < kMaxModels; i++)
     {
         std::ostringstream query;
         query << "WHERE modelid=" << i;
@@ -192,7 +192,7 @@ int handle_trickle(MSG_FROM_HOST &msg)
     log_messages.printf(MSG_NORMAL,
                         "appid: %ld, Credit per timestep: %1.6f\n", result.appid, model.credit_per_timestep);
 
-    if (trickle_msg.nsteps > MAX_STEPS_PER_TRICKLE)
+    if (trickle_msg.nsteps > kMaxStepsPerTrickle)
     {
         log_messages.printf(MSG_NORMAL,
                             "Message %ld: too many timesteps %d\n", msg.id, trickle_msg.nsteps);

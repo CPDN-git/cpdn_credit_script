@@ -4,6 +4,7 @@
 #ifndef _CPDN_DB_
 #define _CPDN_DB_
 
+#include <cstddef>
 #include <string.h>
 #include <cstdio>
 #include <vector>
@@ -19,6 +20,15 @@ extern DB_CONN cpdn_db;
 #include "db/boinc_db.h"
 
 #define LARGE_BLOB_SIZE APP_VERSION_XML_BLOB_SIZE
+
+// Shared fixed-width text buffer sizes. Keep schema/protocol-aligned widths
+// here where they exist, and keep legacy fixed buffers named in one place.
+constexpr std::size_t kResultNameBufferSize = 256;
+constexpr std::size_t kTrickleIpAddrBufferSize = 25;
+constexpr std::size_t kTrickleDataBufferSize = 513;
+constexpr std::size_t kModelDescriptionBufferSize = 129;
+constexpr std::size_t kLegacyModelArchiveBufferSize = 20;
+constexpr std::size_t kModelBoincNameBufferSize = 255;
 
 // A compilation target, i.e. a architecture/OS combination.
 // The core client will be given only applications with the same platform
@@ -36,8 +46,8 @@ struct TRICKLE
     int cputime;
     int clientdate;
     int trickledate;
-    char ipaddr[25];
-    char data[513];
+    char ipaddr[kTrickleIpAddrBufferSize];
+    char data[kTrickleDataBufferSize];
     void clear();
 };
 
@@ -45,15 +55,15 @@ struct TRICKLE
 struct MODEL
 {
     int modelid;
-    char description[129];
+    char description[kModelDescriptionBufferSize];
     int phase;
     int timestep;
     int workunit;
-    char archive[20];
+    char archive[kLegacyModelArchiveBufferSize];
     int benchmark;
     int timestep_per_year;
     float credit_per_timestep;
-    char boinc_name[255];
+    char boinc_name[kModelBoincNameBufferSize];
     int trickle_timestep;
     void clear();
 };
